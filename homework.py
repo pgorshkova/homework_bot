@@ -36,7 +36,7 @@ logger.addHandler(handler)
 
 
 def send_message(bot, message):
-    """Отправка сообщения в чат"""
+    """Отправка сообщения в чат."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, text=message)
         logger.info(f'Бот отправил сообщение : {message}')
@@ -45,7 +45,7 @@ def send_message(bot, message):
 
 
 def get_api_answer(current_timestamp):
-    """Запрос к эндпоинту Practicum.Homeworks API"""
+    """Запрос к эндпоинту Practicum.Homeworks API."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
 
@@ -68,7 +68,7 @@ def get_api_answer(current_timestamp):
 
 
 def check_response(response):
-    """Проверка ответа API на корректность"""
+    """Проверка ответа API на корректность."""
     if isinstance(response, list):
         response = response[0]
         logger.info('API передал список')
@@ -103,7 +103,7 @@ def parse_status(homework):
 
 
 def check_tokens():
-    """Проверяет наличие токенов"""
+    """Проверяет наличие токенов."""
     variables = (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
     for variable in variables:
 
@@ -118,7 +118,6 @@ def check_tokens():
 
 def main():
     """Основная логика работы бота."""
-
     if not check_tokens():
         return
 
