@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import json
 from http import HTTPStatus
 
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ import requests
 import telegram
 
 from exceptions import APIErrException
+from endpoints import ENDPOINT
 
 load_dotenv()
 
@@ -16,23 +18,17 @@ PRACTICUM_TOKEN = os.getenv('YP_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TG_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('CHAT_ID')
 
-RETRY_TIME = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
+TELEGRAM_RETRY_TIME = 600
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
-HOMEWORK_STATUSES = {
+HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
 logger = logging.getLogger(__name__)
-formatter = '%(asctime)s, %(levelname)s, %(message)s'
-handler = logging.StreamHandler()
-logger.setLevel(logging.DEBUG)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 
 def send_message(bot, message):
@@ -55,23 +51,22 @@ def get_api_answer(current_timestamp):
             headers=HEADERS,
             params=params
         )
+        if response.status_code != HTTPStatus.OK:
+            message = (f'Эндпоинт {ENDPOINT} недоступен, '
+                       f'http status: {response.status_code}')
+            raise APIErrException(message)
+        return response.json()
     except requests.exceptions.RequestException:
         message = 'Эндпоинт не найден.'
         raise APIErrException(message)
-
-    if response.status_code != HTTPStatus.OK:
-        message = (f'Эндпоинт {ENDPOINT} недоступен, '
-                   f'http status: {response.status_code}')
-        raise APIErrException(message)
-
-    return response.json()
+    except json.decoder.JSONDecodeError:
+        print("Не является JSON")
 
 
 def check_response(response):
     """Проверка ответа API на корректность."""
     if isinstance(response, list):
         response = response[0]
-        logger.info('API передал список')
     if not isinstance(response, dict):
         logger.error('API передал не словарь')
         raise TypeError('API передал не словарь')
@@ -89,13 +84,12 @@ def parse_status(homework):
     """Извлекает статус работы из ответа ЯндексПрактикум."""
     homework_name = homework.get('homework_name')
     if homework_name is None:
-        logger.error('В ответе API нет ключа homework_name')
         raise KeyError('В ответе API нет ключа homework_name')
     homework_status = homework.get('status')
     if homework_status is None:
         logger.error('В ответе API нет ключа homework_status')
         raise KeyError('В ответе API нет ключа homework_status')
-    verdict = HOMEWORK_STATUSES.get(homework_status)
+    verdict = HOMEWORK_VERDICTS.get(homework_status)
     if verdict is None:
         logger.error('Неизвестный статус')
         raise KeyError('Неизвестный статус')
@@ -105,15 +99,9 @@ def parse_status(homework):
 def check_tokens():
     """Проверяет наличие токенов."""
     variables = (PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)
-    for variable in variables:
-
-        if not variable:
-            logger.critical(
-                f'Переменная {variable} не определена.'
-            )
-            return False
-
-    return True
+    if not all(variables):
+        logger.critical('Нет токена.')
+    return all(variables)
 
 
 def main():
@@ -148,8 +136,13 @@ def main():
             logger.exception(error)
 
         finally:
-            time.sleep(RETRY_TIME)
+            time.sleep(TELEGRAM_RETRY_TIME)
 
 
 if __name__ == '__main__':
+    formatter = '%(asctime)s, %(levelname)s, %(message)s'
+    handler = logging.StreamHandler()
+    logger.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
     main()
