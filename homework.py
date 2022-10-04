@@ -60,7 +60,8 @@ def get_api_answer(current_timestamp):
         message = 'Эндпоинт не найден.'
         raise APIErrException(message)
     except json.decoder.JSONDecodeError:
-        print("Не является JSON")
+        message = 'Не является JSON.'
+        raise APIErrException(message)
 
 
 def check_response(response):
